@@ -14,6 +14,7 @@ namespace OrderedDictionary
     {
         private readonly LinkedList<TKey> _orderedKeys;
         private readonly Dictionary<TKey, TValue> _innerDictionary;
+        private readonly Dictionary<TKey, LinkedListNode<TKey>> _keyToNode;
 
         private readonly KeyCollection _keyCollection;
         private readonly ValueCollection _valueCollection;
@@ -35,6 +36,7 @@ namespace OrderedDictionary
             _innerDictionary = new Dictionary<TKey, TValue>(capacity, comparer);
             _orderedKeys = new LinkedList<TKey>();
 
+            _keyToNode = new Dictionary<TKey, LinkedListNode<TKey>>();
             _keyCollection = new KeyCollection(_orderedKeys, _innerDictionary);
             _valueCollection = new ValueCollection(_orderedKeys, _innerDictionary);
         }
@@ -54,8 +56,7 @@ namespace OrderedDictionary
         /// <inheritdoc />
         public void Add(KeyValuePair<TKey, TValue> item)
         {
-            _innerDictionary.Add(item.Key, item.Value);
-            _orderedKeys.AddLast(item.Key);
+            Add(item.Key, item.Value);
         }
 
         /// <inheritdoc />
@@ -63,6 +64,7 @@ namespace OrderedDictionary
         {
             _innerDictionary.Clear();
             _orderedKeys.Clear();
+            _keyToNode.Clear();
         }
 
         /// <inheritdoc />
@@ -96,7 +98,7 @@ namespace OrderedDictionary
         /// <inheritdoc />
         public bool Remove(KeyValuePair<TKey, TValue> item)
         {
-            return _innerDictionary.Remove(item.Key) && _orderedKeys.Remove(item.Key);
+            return Remove(item.Key);
         }
 
         /// <inheritdoc />
@@ -109,7 +111,8 @@ namespace OrderedDictionary
         public void Add(TKey key, TValue value)
         {
             _innerDictionary.Add(key, value);
-            _orderedKeys.AddLast(key);
+            var node = _orderedKeys.AddLast(key);
+            _keyToNode.Add(key, node);
         }
 
         /// <inheritdoc />
@@ -121,7 +124,15 @@ namespace OrderedDictionary
         /// <inheritdoc />
         public bool Remove(TKey key)
         {
-            return _innerDictionary.Remove(key) && _orderedKeys.Remove(key);
+            var result = _innerDictionary.Remove(key);
+            if (!result)
+            {
+                return false;
+            }
+            
+            _orderedKeys.Remove(_keyToNode[key]);
+            _keyToNode.Remove(key);
+            return true;
         }
 
         /// <inheritdoc />
@@ -139,7 +150,8 @@ namespace OrderedDictionary
                 // Maybe here we should place key to the end of the list in all cases and remove from inside.
                 if (!_innerDictionary.ContainsKey(key))
                 {
-                    _orderedKeys.AddLast(key);
+                    var node = _orderedKeys.AddLast(key);
+                    _keyToNode[key] = node;
                 }
 
                 _innerDictionary[key] = value;
